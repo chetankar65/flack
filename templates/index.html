@@ -34,42 +34,48 @@
             margin-top: 2%;
         }
         .jumbotron{
-            height: 700px;
+            height: 600px;
             overflow: scroll;
         }
         button{
-            width:90%;
+            width:100%;
         }
         .message{
-            background-color:aqua;
+            /*background-color:aqua;*/
+            border-radius: 10px;
+        }
+        #chatBox{
+            position: absolute;
+            bottom:0;
+            width: 100%;
         }
     </style>
 </head>
 <body onload="load()">
     <div class="row" align="center">
-        <div class="col-lg-6 col-sm-6">
+        <div class="col-lg-4 col-sm-4">
             <form id="form">
-                <input type="text" id="displayName" placeholder="Enter a display name">
-                <input type="submit" value="Choose displayname">
+                <input type="text" id="displayName" placeholder="Display name">
+                <input type="submit" value="Add">
             </form><hr>
             <form id="form2">
                 <p id="err"></p>
-                <input type="text" id="channelName" placeholder="Enter a channel name">
-                <input type="submit" value="Choose channel name">
+                <input type="text" id="channelName" placeholder="Channel name">
+                <input type="submit" value="Add" id="btn">
             </form><br>
             <h1>All channels</h1><br>
-            <div class="container" id="active">
+            <div class="container" id="active" style="overflow:scroll;height:350px;">
             
             </div>
         </div>
-        <div class="col-lg-6 col-sm-6">
+        <div class="col-lg-8 col-sm-8">
+            <div id="channel"></div><hr>
             <div class="jumbotron">
-                <div id="chatBox"></div><br>
                 <div id="messages"></div>
-            </div>
+            </div><br><br>
+            <div id="chatBox" class="md-form"></div>
         </div>
     </div>
-    <hr>
 </body>
 <script src="{{ url_for('static', filename = 'index.js')}}"></script>
 <script>
@@ -79,36 +85,34 @@ function load(){
         socket.emit('get channels');
     });
 
-    socket.on('all channels', function(json) {
+    socket.on('display channels', function(json) {
         let channel_list="";
         for (j in json) {
-            channel_list += `<button class="btn btn-primary" onclick="setChannel('${json[j]}')">${json[j]}</button><hr>`;
+            channel_list += `<button class="btn btn-light" onclick="setChannel('${json[j]}')" id="${json[j]}">${json[j]}</button><hr>`;
         }
         document.querySelector('#active').innerHTML = channel_list
     })
-    currentChannel()
 }
 
 function setChannel(channel) {
     localStorage.setItem('channel',channel)
-    currentChannel()
-}
+    if (localStorage.getItem('channel') == channel){
+        document.querySelector('#channel').innerHTML = '<h3> Channel : ' + localStorage.getItem('channel') + '</h3>'
+        document.querySelector('#chatBox').innerHTML = `<textarea style="width:100%;height:50px;" class="md-textarea form-control" rows="3" id="message"></textarea><button onclick="chatBox(document.querySelector('#message').value)" class="btn btn-primary">Send Message</button><hr>`
 
-function currentChannel(){
-    if ('channel' in localStorage){
-        document.querySelector('#chatBox').innerHTML = `<textarea style="width:100%;height:100px;" id="message">Message to channel ${localStorage.getItem('channel')}...</textarea><button onclick="chatBox(document.querySelector('#message').value)" class="btn btn-primary">Send Message</button><hr>`
         loadAllMessages(localStorage.getItem('channel'))
     }
 }
 
 function chatBox(message){
     var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port);
+    document.querySelector('#message').value = ''
     if (message.length != 0){
         if ('user' in localStorage){
             socket.emit('submit message', {'message': message, 'channel':localStorage.getItem('channel'), 'name':localStorage.getItem('user')});
             return false;
         } else {
-            socket.emit('submit message', {'message': message, 'channel':localStorage.getItem('channel'), 'name':'anonymous'});
+            alert('Anonymous messages are not allowed!')
             return false;
         }
     } else {
@@ -121,11 +125,17 @@ function chatBox(message){
 var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port);
 socket.on('all messages', function(json) {
     let messages="";
-    console.log(json)
-    for (var i = 0; i < json.length;i++) {
-        messages += `<div class="message">@Sender:${json[i].name} <br> ${json[i].message} <br> ${json[i].time}</div><br>`;
+    if (json.channel == localStorage.getItem('channel')){
+        for (var i = 0; i < json.messages.length;i++) {
+            if(json.messages[i].name == localStorage.getItem('user')){
+                messages += `<div class="message" align="left" style="background-color:lightblue"><b>${json.messages[i].name}</b> ${json.messages[i].time} <br><br> ${json.messages[i].message}</div><br><br>`;
+            } else {
+                messages += `<div class="message" align="left" style="background-color:aqua"><b>${json.messages[i].name}</b> ${json.messages[i].time} <br><br> ${json.messages[i].message}</div><br><br>`;
+            }
+        }
+        document.querySelector('#messages').innerHTML = messages
+        document.querySelector('#messages').scrollIntoView(false);
     }
-    document.querySelector('#messages').innerHTML = messages
 })
 
 //All messages
@@ -139,6 +149,7 @@ function loadAllMessages(channel){
 
 function logout() {
     localStorage.removeItem('user')
+    checkUser()
 }
 
 </script>
